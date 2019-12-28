@@ -4,7 +4,7 @@
 * [Creating the backend](#creating-the-backend)
   * [Dune project initialization](#dune-project-initialization)
   * [A backend with the main httpaf example](#a-backend-with-the-main-httpaf-example)
-  * [A backend that handles GET, POST, PUT and DELETE http request]
+  * [A backend that handles GET POST PUT and DELETE http requests](#a-backend-that-handles-GET-POST-PUT-and-DELETE-http-request)
   * [A backend that handles JSON data requests]
   * [A backend that use a database]
 * [Creating the React frontend]
@@ -19,24 +19,7 @@ database:
 frontend: react/reasonml
 deployement: docker https://jaredforsyth.com/posts/deploying-native-reason-ocaml-with-now-sh/
 
-the application will be an application where one can create a resume (CV)
-
-Data Model: (to improve)
-
-Resume:
-
-  Person
-    name
-    firstname
-
-  Period:
-    start_date
-    end_date
-    description
-    section
-
-  Section:
-    name
+the application will be a classical todo list.
 
 ## Creating the backend:
 
@@ -140,7 +123,7 @@ dune build bin/backend.exe
 
 In the first part, there is the main example of `httpaf`:
 
-```
+```ocaml
 open Httpaf
 open Base
 open Lwt.Infix
@@ -203,7 +186,8 @@ let error_handler (_ : Unix.sockaddr) = _error_handler
 ```
 
 then, we create an http server that listens to a port and dispatch the request to the `request_handler`:
-```
+
+```ocaml
 let main port =
   let listen_address = Unix.(ADDR_INET (inet_addr_loopback, port)) in
   Lwt.async (fun () ->
@@ -238,4 +222,137 @@ Listening at http://localhost:8080
 Just try to go to *http://localhost:8080/hello/toto* and observe :
 ```
 Hello, toto!
+```
+
+See full source: ba93c5f2da775fbd930ec03e30b2be71008c6cf0
+
+### A backend that handles GET POST PUT and DELETE http requests
+
+Now the backend will be splitted in two files:
+- backend.ml: with the code that manages the web server
+- lib.ml: with the code that handles the requests.
+
+For the `GET` and `DELETE` requests, the server just returns a string with the type of the request and the url requested.
+
+```ocaml
+    let response_body = Printf.sprintf "%s request on url %s\n" (Method.to_string meth) target in
+    let resp_headers = build_headers response_body in
+    Reqd.respond_with_string reqd (Response.create ~headers:resp_headers `OK) response_body
+```
+
+For the `POST` and `PUT` requests, the server will return the same data sent in the request.
+
+```ocaml
+    let response =
+        let content_type =
+          match Headers.get headers "content-type" with
+          | None   -> "application/octet-stream"
+          | Some x -> x
+        in
+        Response.create ~headers:(Headers.of_list ["content-type", content_type; "connection", "close"]) `OK
+    in
+    let request_body  = Reqd.request_body reqd in
+    let response_body = Reqd.respond_with_streaming reqd response in
+    let rec on_read buffer ~off ~len =
+      Body.write_bigstring response_body buffer ~off ~len;
+      Body.schedule_read request_body ~on_eof ~on_read;
+    and on_eof () =
+      Body.close_writer response_body
+    in
+    Body.schedule_read request_body ~on_eof ~on_read
+
+```
+
+First, a response_body stream is created, then `Body.schedule_read` is called to read the request_body and write the data in the response_body. At `eof`, the call to `Body.close_writer` indicates that the response_body should be returned to the client.
+
+*backend.ml*
+
+```ocaml
+    let response =
+        let content_type =
+          match Headers.get headers "content-type" with
+          | None   -> "application/octet-stream"
+          | Some x -> x
+        in
+        Response.create ~headers:(Headers.of_list ["content-type", content_type; "connection", "close"]) `OK
+    in
+    let request_body  = Reqd.request_body reqd in
+    let response_body = Reqd.respond_with_streaming reqd response in
+    let rec on_read buffer ~off ~len =
+      Body.write_bigstring response_body buffer ~off ~len;
+      Body.schedule_read request_body ~on_eof ~on_read;
+    and on_eof () =
+      Body.close_writer response_body
+    in
+    Body.schedule_read request_body ~on_eof ~on_read
+```
+
+*lib.ml*
+
+```ocaml
+    let response =
+        let content_type =
+          match Headers.get headers "content-type" with
+          | None   -> "application/octet-stream"
+          | Some x -> x
+        in
+        Response.create ~headers:(Headers.of_list ["content-type", content_type; "connection", "close"]) `OK
+    in
+    let request_body  = Reqd.request_body reqd in
+    let response_body = Reqd.respond_with_streaming reqd response in
+    let rec on_read buffer ~off ~len =
+      Body.write_bigstring response_body buffer ~off ~len;
+      Body.schedule_read request_body ~on_eof ~on_read;
+    and on_eof () =
+      Body.close_writer response_body
+    in
+    Body.schedule_read request_body ~on_eof ~on_read
+
+```
+
+Build and run :
+
+```
+$ dune build bin/backend.exe
+$ dune exec bin/backend.exe
+Starting server and listening at http://localhost:8080
+
+```
+
+test:
+
+```
+$ curl -i -X GET localhost:8080/toto
+HTTP/1.1 200 OK
+Content-length: 25
+connection: close
+
+GET request on url /toto
+```
+
+```
+$ curl -i -X DELETE localhost:8080/toto/1
+HTTP/1.1 200 OK
+Content-length: 30
+connection: close
+
+DELETE request on url /toto/1
+```
+
+```
+$ curl -i -X POST -H 'Content-Type: application/json' -d '{"numberofsaves": "272"}' localhost:8080/toto
+HTTP/1.1 200 OK
+content-type: application/json
+connection: close
+
+{"numberofsaves": "272"}
+```
+
+```
+$ curl -i -X PUT -H 'Content-Type: application/json' -d '{"numberofsaves": "272"}' localhost:8080/toto
+HTTP/1.1 200 OK
+content-type: application/json
+connection: close
+
+{"numberofsaves": "272"}
 ```
