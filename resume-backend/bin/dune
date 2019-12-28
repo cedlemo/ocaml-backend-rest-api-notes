@@ -1,4 +1,4 @@
 (executable
  (name backend)
- (libraries httpaf httpaf-lwt-unix base stdio lwt lwt.unix)
+ (libraries httpaf httpaf-lwt-unix base stdio lwt lwt.unix yojson)
 )
