@@ -15,6 +15,10 @@ let request_handler reqd =
             "Content-Type", "application/json";
             "connection", "close"]
   in
+  let send_response response_body =
+    let headers = build_headers response_body in
+    Reqd.respond_with_string reqd (Response.create ~headers `OK) response_body
+  in
   match meth with
   | `GET -> let json_values =
               `List [
@@ -33,8 +37,7 @@ let request_handler reqd =
               ]
     in
     let response_body = Yojson.Basic.to_string json_values in
-    let resp_headers = build_headers response_body in
-    Reqd.respond_with_string reqd (Response.create ~headers:resp_headers `OK) response_body
+    send_response response_body
   | `POST | `PUT ->
     let request_body  = Reqd.request_body reqd in
     let data = Buffer.create 1024 in
@@ -43,17 +46,17 @@ let request_handler reqd =
       let () = Buffer.add_string data str in
       Body.schedule_read request_body ~on_eof ~on_read;
     and on_eof () =
+      (* Get the JSON data and print it in the backend output *)
       let json = (Buffer.sub data 0 (Buffer.length data)) |> Bytes.to_string  |> Yojson.Basic.from_string in
-      let () = Stdio.print_endline (Yojson.Basic.pretty_to_string json) in
+      Stdio.print_endline (Yojson.Basic.pretty_to_string json);
+      (* Return an OK response *)
       let response_body = Printf.sprintf "%s request on url %s\n" (Method.to_string meth) target in
-      let resp_headers = build_headers response_body in
-      Reqd.respond_with_string reqd (Response.create ~headers:resp_headers `OK) response_body
+      send_response response_body
     in
     Body.schedule_read request_body ~on_eof ~on_read
   | `DELETE ->
     let response_body = Printf.sprintf "%s request on url %s\n" (Method.to_string meth) target in
-    let resp_headers = build_headers response_body in
-    Reqd.respond_with_string reqd (Response.create ~headers:resp_headers `OK) response_body
+    send_response response_body
   | meth ->
     let response_body =
       Printf.sprintf "%s is not an allowed method\n" (Method.to_string meth)
