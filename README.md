@@ -5,8 +5,8 @@
   * [Dune project initialization](#dune-project-initialization)
   * [A backend with the main httpaf example](#a-backend-with-the-main-httpaf-example)
   * [A backend that handles GET POST PUT and DELETE http requests](#a-backend-that-handles-GET-POST-PUT-and-DELETE-http-request)
-  * [A backend that handles JSON data requests]
-  * [A backend that use a database]
+  * [A backend that handles JSON data requests](#a-backedn-that-handles-json-data-requests)
+  * [A backend that uses a database]
 * [Creating the React frontend]
 * [From React to Reasonml]
 * [Deploying with Docker]
@@ -355,4 +355,53 @@ content-type: application/json
 connection: close
 
 {"numberofsaves": "272"}
+```
+
+See full source: 715d9d38288a24d8b54f093add430e26f2082a6b
+
+### A backend that handles JSON data requests.
+
+The library `yojson` (https://github.com/ocaml-community/yojson) allows to manipulate json data from a string.
+
+For the `PUT` and `POST` requests, data is passed in json format. In the server the data is just received as a string and should be verified and transformed into json.
+
+```ocaml
+    let request_body  = Reqd.request_body reqd in
+    let data = Buffer.create 1024 in
+    let rec on_read buffer ~off ~len =
+      let str = Bigstringaf.substring buffer ~off ~len in
+      let () = Buffer.add_string data str in
+      Body.schedule_read request_body ~on_eof ~on_read;
+    and on_eof () =
+      (* Get the JSON data and print it in the backend output *)
+      let json = (Buffer.sub data 0 (Buffer.length data)) |> Bytes.to_string  |> Yojson.Basic.from_string in
+      Stdio.print_endline (Yojson.Basic.pretty_to_string json);
+      (* Return an OK response *)
+      let response_body = Printf.sprintf "%s request on url %s\n" (Method.to_string meth) target in
+      send_response response_body
+    in
+    Body.schedule_read request_body ~on_eof ~on_read
+```
+
+The `GET` request should return data into the json format.
+
+```ocaml
+  | `GET -> let json_values =
+              `List [
+                `Assoc
+                [
+                    ("id", `String "1");
+                    ("name", `String "todo 1");
+                    ( "description", `String "do this, do that");
+                ];
+                `Assoc
+                [
+                    ("id", `String "2");
+                    ("name", `String "todo 2");
+                    ( "description", `String "do this again, do that again");
+                ]
+              ]
+    in
+    let response_body = Yojson.Basic.to_string json_values in
+    send_response response_body
 ```
