@@ -1,0 +1,4 @@
+(executable
+ (name backend)
+ (libraries httpaf httpaf-lwt-unix base stdio lwt lwt.unix)
+)

@@ -224,7 +224,7 @@ Just try to go to *http://localhost:8080/hello/toto* and observe :
 Hello, toto!
 ```
 
-See full source: ba93c5f2da775fbd930ec03e30b2be71008c6cf0
+See full source in the directory: backend-1
 
 ### A backend that handles GET POST PUT and DELETE http requests
 
