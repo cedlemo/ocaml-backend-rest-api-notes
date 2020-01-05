@@ -224,7 +224,7 @@ Just try to go to *http://localhost:8080/hello/toto* and observe :
 Hello, toto!
 ```
 
-See full source in the directory: backend-1
+See full sources in the directory: backend-1
 
 ### A backend that handles GET POST PUT and DELETE http requests
 
@@ -357,7 +357,7 @@ connection: close
 {"numberofsaves": "272"}
 ```
 
-See full source: 715d9d38288a24d8b54f093add430e26f2082a6b
+See full sources in the directory backend-2.
 
 ### A backend that handles JSON data requests.
 
@@ -405,3 +405,4 @@ The `GET` request should return data into the json format.
     let response_body = Yojson.Basic.to_string json_values in
     send_response response_body
 ```
+
